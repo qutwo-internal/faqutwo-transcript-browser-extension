@@ -425,7 +425,7 @@ function processLastMeeting() {
                                 // @ts-ignore - Because this line exists in the resolved promise from pickupLastMeetingFromStorage, which clearly means that at least one meeting exists and resultLocal.meetings cannot be undefined.
                                 const meetingSoftware = resultLocal.meetings[lastIndex].meetingSoftware
                                 const isWebhookEnabled = resultSync.webhookUrl && resultSync.autoPostWebhookAfterMeeting ? true : false
-                                fetch(`https://script.google.com/macros/s/AKfycbxgUPDKDfreh2JIs8pIC-9AyQJxq1lx9Q1qI2SVBjJRvXQrYCPD2jjnBVQmds2mYeD5nA/exec?version=${chrome.runtime.getManifest().version}&isWebhookEnabled=${isWebhookEnabled}&meetingSoftware=${meetingSoftware}`, {
+                                fetch(`https://script.google.com/macros/s/AKfycbxK3Xd3u7ArtSEEUmu4jJSuJiyOHr5BtRqRGbcAy8Yc3zlVBTUoJ4wr-fJtQtlqRLGspg/exec?version=${chrome.runtime.getManifest().version}&isWebhookEnabled=${isWebhookEnabled}&meetingSoftware=${meetingSoftware}`, {
                                     mode: "no-cors"
                                 })
                             })
@@ -583,7 +583,7 @@ function downloadTranscript(index, isWebhookEnabled) {
                             resolve("Transcript downloaded successfully with default file name")
 
                             // Logs anonymous errors to a Google sheet for swift debugging   
-                            fetch(`https://script.google.com/macros/s/AKfycbwN-bVkVv3YX4qvrEVwG9oSup0eEd3R22kgKahsQ3bCTzlXfRuaiO7sUVzH9ONfhL4wbA/exec?version=${chrome.runtime.getManifest().version}&code=009&error=${encodeURIComponent(err)}&meetingSoftware=${meeting.meetingSoftware}`, { mode: "no-cors" })
+                            fetch(`https://script.google.com/macros/s/AKfycbz0VFUYIke1WK12Q-8y-zQ91bOPRZ8dAL4cRpm309IYZO0k6uYDkTSlfbWFaGvUV_Z-JQ/exec?version=${chrome.runtime.getManifest().version}&code=009&error=${encodeURIComponent(err)}&meetingSoftware=${meeting.meetingSoftware}`, { mode: "no-cors" })
                         })
                     }
                     else {

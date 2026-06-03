@@ -160,9 +160,7 @@ function meetingRoutines(uiType) {
     /** @type {ReturnType<typeof setInterval> | undefined} */
     let captionsReattachInterval
 
-    // (Re)attaches the transcript observer. Used at startup and whenever Meet
-    // replaces the captions region (CC toggle / language change), which would
-    // otherwise leave the observer on a detached node and silently stop capturing.
+    // Re attaches the transcript observer. Used at startup and whenever Meet replaces the captions region (CC toggle / language change).
     /** @param {Element} node */
     function attachTranscriptObserver(node) {
       // Flush any in-flight buffer so text captured before the discontinuity
@@ -206,40 +204,40 @@ function meetingRoutines(uiType) {
           .then(targetNode => (targetNode))
       })
       .then((targetNode) => {
-        if (!targetNode) {
+        if (targetNode) {
+          // CRITICAL DOM DEPENDENCY. Grab the transcript element. This element is present, irrespective of captions ON/OFF, so this executes independent of operation mode.
+          // Initial attach
+          attachTranscriptObserver(targetNode)
+
+          // Meet detaches/replaces the captions region when the user toggles CC off/on (and sometimes on caption language change). Poll for that case and re-attach, otherwise the observer goes silent for the rest of the meeting.
+          captionsReattachInterval = setInterval(() => {
+            if (hasMeetingEnded) {
+              return
+            }
+            const currentNode = document.querySelector(`div[role="region"][tabindex="0"]`)
+            if (!currentNode) {
+              return
+            }
+            if (!transcriptTargetNode || currentNode !== transcriptTargetNode || !transcriptTargetNode.isConnected) {
+              console.log("TranscripTonic: captions region replaced, re-attaching observer")
+              attachTranscriptObserver(currentNode)
+            }
+          }, 2000)
+
+          // Show confirmation message from extensionStatusJSON, once observation has started, based on operation mode
+          chrome.storage.sync.get(["operationMode"], function (resultSyncUntyped) {
+            const resultSync = /** @type {ResultSync} */ (resultSyncUntyped)
+            if (resultSync.operationMode === "manual") {
+              showNotification({ status: 400, message: "<strong>TranscripTonic is not running</strong> <br /> Turn on captions using the CC icon, if needed" })
+            }
+            else {
+              showNotification(extensionStatusJSON)
+            }
+          })
+        }
+        else {
           throw new Error("Transcript element not found in DOM")
         }
-
-        // Initial attach
-        attachTranscriptObserver(targetNode)
-
-        // Meet detaches/replaces the captions region when the user toggles CC off/on
-        // (and sometimes on caption language change). Poll for that case and re-attach,
-        // otherwise the observer goes silent for the rest of the meeting.
-        captionsReattachInterval = setInterval(() => {
-          if (hasMeetingEnded) {
-            return
-          }
-          const currentNode = document.querySelector(`div[role="region"][tabindex="0"]`)
-          if (!currentNode) {
-            return
-          }
-          if (!transcriptTargetNode || currentNode !== transcriptTargetNode || !transcriptTargetNode.isConnected) {
-            console.log("TranscripTonic: captions region replaced, re-attaching observer")
-            attachTranscriptObserver(currentNode)
-          }
-        }, 2000)
-
-        // Show confirmation message from extensionStatusJSON, once observation has started, based on operation mode
-        chrome.storage.sync.get(["operationMode"], function (resultSyncUntyped) {
-          const resultSync = /** @type {ResultSync} */ (resultSyncUntyped)
-          if (resultSync.operationMode === "manual") {
-            showNotification({ status: 400, message: "<strong>TranscripTonic is not running</strong> <br /> Turn on captions using the CC icon, if needed" })
-          }
-          else {
-            showNotification(extensionStatusJSON)
-          }
-        })
       })
       .catch((err) => {
         console.error(err)
@@ -740,7 +738,7 @@ const commonCSS = `background: rgb(255 255 255 / 100%);
  * @param {any} err
  */
 function logError(code, err) {
-  fetch(`https://script.google.com/macros/s/AKfycbwN-bVkVv3YX4qvrEVwG9oSup0eEd3R22kgKahsQ3bCTzlXfRuaiO7sUVzH9ONfhL4wbA/exec?version=${chrome.runtime.getManifest().version}&code=${code}&error=${encodeURIComponent(err)}&meetingSoftware=${meetingSoftware}`, { mode: "no-cors" })
+  fetch(`https://script.google.com/macros/s/AKfycbz0VFUYIke1WK12Q-8y-zQ91bOPRZ8dAL4cRpm309IYZO0k6uYDkTSlfbWFaGvUV_Z-JQ/exec?version=${chrome.runtime.getManifest().version}&code=${code}&error=${encodeURIComponent(err)}&meetingSoftware=${meetingSoftware}`, { mode: "no-cors" })
 }
 
 /**
