@@ -1,3 +1,20 @@
+<!-- ───────────────────────────────────────────────────────────────────────────
+qutwo-internal FORK. Upstream: https://github.com/vivek-nexus/transcriptonic
+
+Our only change is a live sink: `extension/faqutwo-sink.js` debounce-POSTs the rolling
+transcript to the local faqutwo bridge (default http://127.0.0.1:8765/transcript) so the
+in-page AI has it as live context during a call — upstream only webhooks at meeting end.
+It's loaded by a single `importScripts("faqutwo-sink.js")` line at the top of background.js;
+manifest.json adds 127.0.0.1:8765 to host_permissions. Nothing else upstream is touched.
+
+Install: chrome://extensions → Developer mode → Load unpacked → pick the `extension/` dir.
+Then turn on Meet captions; with the faqutwo bridge running, the transcript flows in live.
+Override the endpoint with `chrome.storage.sync.set({faqutwoUrl: "..."})` if needed.
+
+Sync upstream:  git fetch upstream && git merge upstream/main   (our delta is additive, so
+this is normally clean; hand-resolve only if upstream rewrites the very top of background.js).
+──────────────────────────────────────────────────────────────────────────── -->
+
 # TranscripTonic
 Simple Google Meet transcripts. Private and open source. 
 > Teams and Zoom transcripts in beta. <a href="https://github.com/vivek-nexus/transcriptonic/wiki/Zoom-and-Teams-beta-testing" target="_blank">Learn

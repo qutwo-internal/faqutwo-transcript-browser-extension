@@ -2,6 +2,10 @@
 /// <reference path="../types/chrome.d.ts" />
 /// <reference path="../types/index.js" />
 
+// qutwo-internal fork: live-stream the transcript to the local faqutwo bridge (see faqutwo-sink.js).
+// Single additive line so upstream merges stay clean.
+importScripts("faqutwo-sink.js")
+
 /** @type {Intl.DateTimeFormatOptions} */
 const timeFormat = {
     year: "numeric",
