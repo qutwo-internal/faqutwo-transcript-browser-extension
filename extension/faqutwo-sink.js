@@ -50,3 +50,16 @@
     timer = setTimeout(flush, DEBOUNCE_MS);
   });
 })();
+
+// Reliability fix (Firefox): upstream only (re)registers its content scripts on permissions.onAdded
+// and onInstalled — but Firefox doesn't reliably fire onAdded for about:addons permission toggles, and
+// there's no onStartup handler, so after granting host access + a restart the Meet/Zoom/Teams content
+// script can fail to register and nothing gets captured. Re-assert registration for already-granted
+// hosts whenever the background loads (startup / event-page wake) and on browser startup.
+// reRegisterContentScripts() lives in background.js (loaded right after this via importScripts) and is
+// idempotent — it skips hosts whose script is already registered.
+(function () {
+  function reassert() { try { if (typeof reRegisterContentScripts === "function") reRegisterContentScripts(); } catch (_) {} }
+  if (chrome.runtime && chrome.runtime.onStartup) chrome.runtime.onStartup.addListener(reassert);
+  setTimeout(reassert, 3000);   // current background load: background.js (hence reRegisterContentScripts) is defined by now
+})();
