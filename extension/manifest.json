@@ -33,7 +33,14 @@
     "https://teams.cloud.microsoft/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["faqutwo-sink.js", "background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "transcriptonic-faqutwo@qutwo.internal",
+      "strict_min_version": "121.0"
+    }
   },
   "declarative_net_request": {
     "rule_resources": [

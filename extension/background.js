@@ -3,8 +3,9 @@
 /// <reference path="../types/index.js" />
 
 // qutwo-internal fork: live-stream the transcript to the local faqutwo bridge (see faqutwo-sink.js).
-// Single additive line so upstream merges stay clean.
-importScripts("faqutwo-sink.js")
+// Chrome (service-worker background) loads it via importScripts; Firefox (event-page background) has no
+// importScripts and instead loads faqutwo-sink.js via manifest background.scripts — hence the guard.
+if (typeof importScripts === "function") importScripts("faqutwo-sink.js")
 
 /** @type {Intl.DateTimeFormatOptions} */
 const timeFormat = {
