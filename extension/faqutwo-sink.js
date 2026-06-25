@@ -12,8 +12,15 @@
 
 (function () {
   const DEFAULT_URL = "http://127.0.0.1:8765/transcript";
-  const DEBOUNCE_MS = 4000;   // coalesce caption bursts; the bridge full-replaces, so latency is fine
-  let timer = null;
+  const MIN_INTERVAL_MS = 2500;   // throttle bursts; the bridge full-replaces, so a coarse cadence is fine
+  let endpoint = DEFAULT_URL;
+  let lastFlush = 0;
+  let trailing = null;
+  let inFlight = false;
+
+  // Cache the endpoint override at load so flush() needs only ONE async hop (storage.local.get) before
+  // the fetch — fewer idle gaps for the event page to suspend in. Refreshed via the onChanged listener.
+  chrome.storage.sync.get(["faqutwoUrl"], (s) => { if (s && s.faqutwoUrl) endpoint = s.faqutwoUrl; });
 
   // Same block shape upstream uses ({personName, transcriptText, timestamp}); speaker-labelled lines.
   function fmt(transcript) {
@@ -25,30 +32,49 @@
   }
 
   function flush() {
+    clearTimeout(trailing); trailing = null;
+    lastFlush = Date.now();
     chrome.storage.local.get(["transcript", "meetingTitle", "meetingSoftware"], (local) => {
       const text = fmt(local && local.transcript);
       if (!text.trim()) return;
-      chrome.storage.sync.get(["faqutwoUrl"], (sync) => {
-        const url = (sync && sync.faqutwoUrl) || DEFAULT_URL;
-        fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text,
-            meeting: (local && local.meetingTitle) || "",
-            source: (local && local.meetingSoftware) || ""
-          })
-        }).catch(() => { /* bridge not running / different machine — ignore; this is best-effort */ });
-      });
+      inFlight = true;
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          meeting: (local && local.meetingTitle) || "",
+          source: (local && local.meetingSoftware) || ""
+        })
+      })
+        .then(r => console.log("faqutwo-sink: POST", r.status, "—", text.length, "chars"))
+        .catch(e => console.warn("faqutwo-sink: POST failed —", (e && e.message) || e))
+        .finally(() => { inFlight = false; });
     });
   }
 
-  // The content script rewrites these keys as captions arrive; debounce a POST on each change.
+  // Leading-edge flush. The background is an event page that Firefox suspends seconds after it handles
+  // a storage change — a trailing setTimeout(flush, 4000) gets dropped before it fires, so nothing is
+  // ever sent. Instead, POST immediately on the first change (the in-flight fetch keeps the page alive
+  // until it completes) and only DELAY when we've flushed within MIN_INTERVAL. On every wake the module
+  // state above resets to lastFlush=0, so the first change after a wake always flushes immediately.
+  function onChange() {
+    const since = Date.now() - lastFlush;
+    if (since >= MIN_INTERVAL_MS && !inFlight) {
+      flush();
+    } else {
+      clearTimeout(trailing);
+      trailing = setTimeout(flush, Math.max(250, MIN_INTERVAL_MS - since));
+    }
+  }
+
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "sync" && changes.faqutwoUrl) { endpoint = changes.faqutwoUrl.newValue || DEFAULT_URL; return; }
     if (area !== "local" || (!changes.transcript && !changes.chatMessages)) return;
-    clearTimeout(timer);
-    timer = setTimeout(flush, DEBOUNCE_MS);
+    onChange();
   });
+
+  console.log("faqutwo-sink: loaded → posting transcript to", endpoint);
 })();
 
 // Reliability fix (Firefox). Two upstream gaps break Meet capture in Firefox:
