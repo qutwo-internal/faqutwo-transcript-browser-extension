@@ -32,28 +32,42 @@ let personNameBuffer = "", transcriptTextBuffer = "", timestampBuffer = ""
 /** @type {ChatMessage[]} */
 let chatMessages = []
 
-// faqutwo (qutwo-internal fork addition; NOT upstream). Live-stream the IN-PROGRESS transcript.
-// Upstream only commits the active utterance buffer into `transcript` (and thus into chrome.storage,
-// which the faqutwo background sink watches) on a SPEAKER CHANGE or at MEETING END. With a single
-// continuous speaker that never happens mid-call, so storage never updates and nothing streams to the
-// faqutwo bridge until the meeting ends. Here we mirror the committed blocks PLUS the live buffer into a
-// dedicated `faqutwoLive` key (a ready-to-POST speaker-labelled string) on a short interval — deduped, so
-// we only write (and only wake the background) when the text actually changes. Best-effort and isolated:
-// it reads existing globals and touches no upstream logic, keeping `git merge upstream/main` clean.
-let faqutwoLastLive = ""
+// faqutwo (qutwo-internal fork addition; NOT upstream). Live-stream the FULL transcript.
+// Two upstream gaps for our live use: (1) the in-progress utterance is only committed to the
+// `transcript` array (→ chrome.storage, which the faqutwo background sink watches) on a SPEAKER CHANGE
+// or Meet's ~30-min reset, so a solo speaker never updates storage mid-call; (2) `transcriptTextBuffer`
+// mirrors Meet's VISIBLE caption, which is a ROLLING WINDOW — Meet drops old text from the block as one
+// person keeps talking, so the live text plateaus (~100 sentences, fluctuating) and the early call is
+// lost. So we accumulate the windows ourselves, lossless, via overlap-merge: each tick we splice the
+// latest window onto what we already have (matching the longest suffix/prefix overlap), inserting a
+// speaker label on a speaker change. Written to a dedicated `faqutwoLive` key, deduped so we only write
+// (and wake the background) on real change. Self-contained — reads existing globals, no upstream logic.
+let faqFull = "", faqWho = "", faqWin = "", faqLastLive = ""
+function faqMerge(accum, win) {
+  if (!win) return accum
+  if (!accum) return win
+  if (accum.endsWith(win)) return accum            // window re-observed / shrank within itself
+  if (win.startsWith(accum)) return win            // pure forward growth
+  const max = Math.min(accum.length, win.length)
+  for (let k = max; k >= 12; k--) if (accum.slice(-k) === win.slice(0, k)) return accum + win.slice(k)
+  return accum + (accum.endsWith(" ") ? "" : " ") + win   // window rolled with no overlap → append fresh
+}
 setInterval(() => {
   try {
-    const lines = transcript.map(b => `${(b && b.personName) || "?"}: ${(b && b.transcriptText) || ""}`.trim())
-    if (transcriptTextBuffer && transcriptTextBuffer.trim()) {
-      const who = personNameBuffer === "You" ? userName : (personNameBuffer || userName)
-      lines.push(`${who}: ${transcriptTextBuffer}`.trim())
+    const who = (personNameBuffer === "You" ? userName : personNameBuffer) || ""
+    const win = (transcriptTextBuffer || "").trim()
+    if (win && win !== faqWin) {
+      if (who && faqWho && who !== faqWho) faqFull += "\n" + who + ": " + win          // speaker changed
+      else if (!faqWho && who) faqFull = who + ": " + win                              // first turn
+      else faqFull = faqMerge(faqFull, win)                                            // same speaker, extend
+      faqWho = who || faqWho
+      faqWin = win
     }
-    const text = lines.filter(Boolean).join("\n")
-    if (text === faqutwoLastLive) return
-    faqutwoLastLive = text
-    chrome.storage.local.set({ faqutwoLive: text })
+    if (faqFull === faqLastLive) return
+    faqLastLive = faqFull
+    chrome.storage.local.set({ faqutwoLive: faqFull })
   } catch (_) { /* best-effort */ }
-}, 2000)
+}, 1500)
 
 /** @type {MeetingSoftware} */
 const meetingSoftware = "Google Meet"
