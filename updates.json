@@ -2,7 +2,7 @@
   "addons": {
     "transcriptonic-faqutwo@qutwo.internal": {
       "updates": [
-        { "version": "3.3.5.8", "update_link": "https://github.com/qutwo-internal/faqutwo-transcript-browser-extension/releases/download/v3.3.5.8/faqutwo-transcript-browser-extension-3.3.5.8.xpi" }
+        { "version": "3.3.5.9", "update_link": "https://github.com/qutwo-internal/faqutwo-transcript-browser-extension/releases/download/v3.3.5.9/faqutwo-transcript-browser-extension-3.3.5.9.xpi" }
       ]
     }
   }
